@@ -1,7 +1,0 @@
-Initial guess for fit #0 in 10 events dataset: -118
-FND value at initial guess: 0.22
-
-fit parameters for |sin(x-x_0)| fit:
-[y_offset, amplitude, angle (degrees:)] [ 2.62685900e-01 -6.11610793e-02 -8.10834499e+01]
-error: [9.00838959e-03 1.27453570e-02 1.04131852e+01]
-
