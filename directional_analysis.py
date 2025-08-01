@@ -282,7 +282,7 @@ class DirectionalAnalysis():
 			for j, num in enumerate(n_evts):
 				if (debug_msg):
 					print(f"Calculating fits and angular resolution for {num} events in {sz}mm segments with {iters} iterations...\n")
-				out_file_str = f"seg_size_{sz}_resolution_{self.num_ev_str[num]}_evts.txt"
+				out_file_str = f"seg_size_{sz}_resolution{self.num_ev_str[num]}_evts.txt"
 				for i in range(n_iters):
 					angle = self.angleFit(self.grid_size[k], sz, num, i, write_outputs, keep_plots, self.out_file_path + dir_str[num], False, False)
 					fit_angle[num].append(angle)
