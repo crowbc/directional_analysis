@@ -5,7 +5,7 @@ A Python script that uses Pandas to read data files from a RATPAC2 simulation an
 
 This script will also perform these fits a specified number of times on an array of different data sets containing 10, 100, 1k and 10k IBD events in order to find the angular resolution at 1 sigma confidence as a function of number of IBD events analyzed. All output logs and fits are saved to text (.txt) and plots (.pdf) respectively, and the main plot and output file are saved in the fits/ directory.
 # Version History
-01AUG2025	v 0.2.2 Fixes: Moved reference vertices declaration to __init__ method and used instances in later methods. Removed old backup directional_analysis.bak and placed in archive folder (path is in .gitignore file.) (Fix in progress:) Correcting pdf output for saving resolution plot --- saves a blank plot if plot is displayed in runtime.
+04AUG2025	v 0.2.2 Fixes: Moved reference vertices declaration to __init__ method and used instances in later methods. Removed old backup directional_analysis.bak and placed in archive folder (path is in .gitignore file.) (Fix in progress:) Correcting pdf output for saving resolution plot --- saves a blank plot if plot is displayed in runtime.
 
 31JUL2025	v 0.2.1 Corrected output file name in resolutionPlot() method
 
