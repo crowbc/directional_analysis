@@ -40,9 +40,12 @@ class DirectionalAnalysis():
 	which is then plotted as angular resolution as a function of number of events used in the fit.
 	"""
 	################################################################
+	# __init__ method to initialize class and create instance with
+	# defined parameters
+	################################################################
 	def __init__(self):
 		# control Booleans
-		self.debug = True
+		self.debug = False
 		self.latex = True
 		self.Li6_filter = True
 		
@@ -73,8 +76,8 @@ class DirectionalAnalysis():
 		self.ref_locs = self.neutron_data_ref.groupby("Row").last()# keep only captures
 		self.ref_truth_locs = self.truth_data_ref.groupby("Row").first()# keep only first entry of MC events
 		# list objects for segment size and binning matrix size --- note: use only 150 mm 3x3 matrix for testing and debugging
-		self.seg_sz = [150, 50, 5]#[150]
-		self.grid_size = [3, 5, 17]#[3]
+		self.seg_sz = [150]#[150, 50, 5]
+		self.grid_size = [3]#[3, 5, 17]
 		# parameters for creating binning matrices of reference data and doing fits
 		self.data_range = 180
 		self.truth_angle = 0
@@ -88,10 +91,11 @@ class DirectionalAnalysis():
 				print(f"Creating binning matrices for {sz}mm segments.")
 		"""	
 		self.out_file_path = "fits/"
-		self.iters = 5
 		return
 	################################################################
-	# define functions for fits -- gaussian and sin_sq not used for now
+	# define functions for fits
+	# only abs_sin is used currently
+	################################################################
 	def gaussian(self, x, amplitude, mean, stddev):
 		if(self.debug):
 			print("DirectionalAnalysis class method: gaussian")
@@ -106,6 +110,7 @@ class DirectionalAnalysis():
 		return yoffset + amplitude * np.square(np.sin( (np.pi/360.0) * (x - xoffset) ))
 	################################################################
 	# define data filtering function for neutron captures on Li-6
+	################################################################
 	def filterCaptures(self, unfiltered_data, truth_data):
 		if(self.debug):
 			print("DirectionalAnalysis class method: filterCaptures")
@@ -121,7 +126,9 @@ class DirectionalAnalysis():
 		# return data sets of filtered (neutron and MC truth) events
 		return filtered_data, truth_data
 	################################################################
-	# define functions to read truth.txt, neutrons.txt and positrons.txt
+	# define functions to read truth.txt, neutrons.txt and
+	# positrons.txt (not currently used)
+	################################################################
 	def readTruthData(self, truth_file):
 		if(self.debug):
 			print("DirectionalAnalysis class method: readTruthData")
@@ -144,6 +151,7 @@ class DirectionalAnalysis():
 		return positron_data
 	################################################################
 	# define binning matrix initializer
+	################################################################
 	def initMatrix(self, seg_sz, mat_sz):
 		#if(self.debug):# suppressed due to excessive output in log files
 			#print("DirectionalAnalysis class method: initMatrix")
@@ -165,7 +173,10 @@ class DirectionalAnalysis():
 				}
 		return bin_mat
 	################################################################
-	# define binning function --- TODO: Binned and normalized event matrices and reference matrices to be stored as separate objects
+	# define binning function
+	# TODO: Binned and normalized event matrices and reference
+	# matrices to be stored as separate objects
+	################################################################
 	def binEvents(self, filtered_data, truth_data, theta, seg_size, matrix_size):#, plot=False):
 		#if(self.debug):# suppressed due to excessive output in log files
 			#print("DirectionalAnalysis class method: binEvents")
@@ -204,8 +215,14 @@ class DirectionalAnalysis():
 			for j in range(matrix_size):
 				caps[i][j] = seg[i][j]["counts"]
 		return caps
+	################################################################
 	# define fitting function
-	def angleFit(self, nbins, seg_size, num_events, it_num, save_output=True, save_plots=True, output_path="fits/", show_plots=False, debug=False):
+	################################################################
+	def angleFit(
+			self, nbins, seg_size, num_events, it_num, 
+			save_output=True, save_plots=True, output_path="fits/", 
+			show_plots=False, debug=False
+	):
 		if (self.debug):
 			print("DirectionalAnalysis class method: angleFit")
 		# strings to build path to import "data" file
@@ -218,30 +235,44 @@ class DirectionalAnalysis():
 		ref_str = pre_str + self.num_ev_str[10000] + dop_str + run_type_str["r"]
 		# read truth.txt and neutrons.txt for fixed sets. Filter neutron events for captures on Li-6
 		fixed_set_truth = self.readTruthData(fixed_str + data_type_str["t"])
-		fixed_set_neutrons, fixed_set_truth = self.readNeutrons(fixed_str + data_type_str["n"], fixed_set_truth, self.Li6_filter)
+		fixed_set_neutrons, fixed_set_truth = self.readNeutrons(
+									fixed_str + data_type_str["n"], 
+									fixed_set_truth, self.Li6_filter
+		)
 		# get neutron capture events and IBD vertices for fixed data set
 		locs = fixed_set_neutrons.groupby("Row").last()
 		truth_locs = fixed_set_truth.groupby("Row").first()# keep only the first entry. MC values don't change
+		out_str = ""
 		if (self.Li6_filter):
 			num_Li6_caps = len(truth_locs.groupby("Row"))
+			out_str = f"Number of captures on Li-6: {num_Li6_caps}"
 			if(debug):
-				print(f"Number of captures on Li-6: {num_Li6_caps}")
+				print(out_str)
 		# bin fixed location events and normalize binning
-		caps_fixed = self.binEvents(locs, truth_locs, self.truth_angle, seg_size, nbins)
+		caps_fixed = self.binEvents(
+						locs, truth_locs, 
+						self.truth_angle, seg_size, 
+						nbins
+		)
 		num_caps = np.sum(caps_fixed)
+		out_str = f"Number of binned captures: {num_caps}"
 		if (debug):
-			print(f"Number of binned captures: {num_caps}")
+			print(out_str)
 		caps_fixed = caps_fixed/num_caps
+		out_str = f"Calculating FND fit #{it_num} for {fixed_str} and {ref_str} ..."
 		if (debug):
-			fnd_fit_str = f"Calculating FND fit #{it_num} for {fixed_str} and {ref_str} ..."
-			print(fnd_fit_str)
+			print(out_str)
 		# Iterate over reference angles to minimize FND for |sin(th-th0)| fit
 		angles = []
 		norms = []
 		# do binning of reference matrices --- TODO: needs status bar for binning progress (angle 1 to angle 2)
 		for th in range(-self.data_range,self.data_range):# TODO: do these reference binnings once and store. Recall binned matrices to do FND calculations for fits
 			angles.append(th)
-			caps_ref = self.binEvents(self.ref_locs, self.ref_truth_locs, th, seg_size, nbins)
+			caps_ref = self.binEvents(
+							self.ref_locs, 
+							self.ref_truth_locs, 
+							th, seg_size, nbins
+			)
 			num_ref = np.sum(caps_ref)
 			caps_ref = caps_ref/num_ref
 			fnd_sq = np.sum(np.square(caps_ref - caps_fixed))
@@ -253,15 +284,13 @@ class DirectionalAnalysis():
 		fnd_min = norms[np.argmin(norms)]
 		angle_guess = angles[np.argmin(norms)]
 		filename = f"segsz_{seg_size}mm_FND_fit{self.num_ev_str[num_events]}.txt"
-		out_str1 = "Initial guess for fit #"
-		out_str1 += f"{it_num} in {num_events} events dataset: {angle_guess}\n"
-		out_str1 += f"FND value at initial guess: {fnd_min}\n"
+		out_str = f"Initial guess for fit #{it_num}: {angle_guess}\nFND value: {fnd_min}\n"
 		if (save_output):
 			fstring = output_path + filename
 			with open(fstring, "a") as f:
-				print(out_str1, file=f)
+				print(out_str, file=f)
 		elif (debug):
-			print(out_str1)
+			print(out_str)
 		# do |sin(th-th0)| fit---TODO: needs status bar for angles being fit
 		sin_y_offset = np.min(norms)
 		sin_fit_norms = np.array([(fn - sin_y_offset) for fn in norms])
@@ -279,25 +308,18 @@ class DirectionalAnalysis():
 		fig2, ax2 = plt.subplots(figsize=(6, 4))
 		ax2.set_xlabel("$\\vartheta$ (${}^\\circ$)")
 		# function, y axis labels, and plot
-		out_str2 = "Fit parameters for |sin(x-x_0)| fit #"
-		out_str2 += f"{it_num} in {num_events} events dataset:\n"
-		out_str2 += "[y_offset, amplitude, angle (degrees:)] "
-		out_str2 += f"{sin_popt}\nerror: {sin_y_errors}\n"
+		out_str = f"Fit parameters: \n [y_offset, amplitude, angle (degrees:)] {sin_popt}\nerrors: {sin_y_errors}\n"
 		if (save_output):
 			fstring = output_path + filename
 			with open(fstring, "a") as f:
-				print(out_str2, file = f)
+				print(out_str, file = f)
 		elif (debug):
-			print(out_str2)
+			print(out_str)
 		fnd_label = "Frobenius norm"
-		fit_label = "$\\alpha|\\sin(\\vartheta-\\theta_0)|$\n(fit: $\\theta_0 = "
+		fit_label = f"$\\alpha|\\sin(\\vartheta-\\theta_0)|$\n(fit: $\\theta_0 = {sin_popt[2]:.1f}\\pm{sin_y_errors[2]:.1f}" + "{}^\\circ$\n"
 		if (num_events<100):
-			fit_label += f"{sin_popt[2]:.1f}\\pm{sin_y_errors[2]:.1f}"
-			fit_label += "{}^\\circ$\n"
 			fit_label += f"($\\alpha = {sin_popt[1]:.3f}\\pm{sin_y_errors[1]:.3f}$))"
 		else:
-			fit_label += f"{sin_popt[2]:.1f}\\pm{sin_y_errors[2]:.1f}"
-			fit_label += "{}^\\circ$\n"
 			fit_label += f"($\\alpha = {sin_popt[1]:.4f}\\pm{sin_y_errors[1]:.4f}$))"
 		if(debug):
 			print(fit_label)
@@ -318,8 +340,11 @@ class DirectionalAnalysis():
 		plt.close()
 		return sin_y_errors[2], sin_popt[2], num_caps
 	################################################################
-	# this function iterates fits through various segment sizes, number of events in each "data" file, and number of iterations for fits and generates the resolution plot
-	def doIterativeFits(self, n_iters, f_name, write_outputs=True, keep_plots=True, show_plots=False, debug_msg=False):
+	# this function iterates fits through various segment sizes, 
+	# number of events in each "data" file, and number of iterations
+	# for fits and generates the resolution plot
+	################################################################
+	def doIterativeFits(self, n_iters, p_name, f_name, write_outputs=True, keep_plots=True, show_plots=False, debug_msg=False):
 		# matrix size for n by n binning matrix -- events are binned by counting the number of segments between prompt and delayed vertices
 		# TODO: find proper binning size for 5 mm segments
 		if(self.debug):
@@ -328,17 +353,26 @@ class DirectionalAnalysis():
 		fit_res = {150: [], 50: [], 5: []}
 		n_evts = [10, 20, 50, 100, 200, 500, 1000, 2000, 5000, 10000]
 		dir_str = {
-				10: "moneyplot_10_evt_fits/", 20: "moneyplot_20_evt_fits/", 
-				50: "moneyplot_50_evt_fits/", 100: "moneyplot_100_evt_fits/", 
-				200: "moneyplot_200_evt_fits/", 500: "moneyplot_500_evt_fits/", 
-				1000: "moneyplot_1k_evt_fits/", 2000: "moneyplot_2k_evt_fits/", 
-				5000: "moneyplot_5k_evt_fits/", 10000: "moneyplot_10k_evt_fits/"
+				10: "res_plot_10_evt_fits/", 20: "res_plot_20_evt_fits/", 
+				50: "res_plot_50_evt_fits/", 100: "res_plot_100_evt_fits/", 
+				200: "res_plot_200_evt_fits/", 500: "res_plot_500_evt_fits/", 
+				1000: "res_plot_1k_evt_fits/", 2000: "res_plot_2k_evt_fits/", 
+				5000: "res_plot_5k_evt_fits/", 10000: "res_plot_10k_evt_fits/"
 		}
+		write_it = self.out_file_path + f_name
+		plot_it = self.out_file_path + p_name
+		summarize_it = self.out_file_path + "ang_res_summary_"
 		fig, ax1 = plt.subplots(figsize=(6, 4))
 		ax1.set_xlabel("Number of events")
 		ax1.set_xscale("log")
 		ax1.set_ylabel("Angular resolution (${}^\\circ$)")
 		ax1.set_yscale("log")
+		out_str = f"Iterative fitting for {self.seg_sz}mm segments and {n_evts} events using {n_iters} iterations:\n"
+		if (write_outputs):
+			with open(write_it, "w") as f:
+				print(out_str, file=f)
+		elif (debug_msg):
+			print(out_str)
 		for k, sz in enumerate(self.seg_sz):
 			fit_angle = {
 					10: [], 20: [], 50: [], 
@@ -364,65 +398,89 @@ class DirectionalAnalysis():
 					1000: 0, 2000: 0, 5000: 0, 
 					10000: 0
 			}
+			out_str = f"____________________\nSegment size: {sz}mm\n____________________\n"
+			if (write_outputs):
+				with open(write_it, "a") as f:
+					print(out_str, file=f)
+			elif (debug_msg):
+				print(out_str)
 			for j, num in enumerate(n_evts):
+				out_str = f"Calculating fits and angular resolution for {num} events in {sz}mm segments with {n_iters} iterations...\n"
 				if (debug_msg):
-					print(f"Calculating fits and angular resolution for {num} events in {sz}mm segments with {iters} iterations...\n")
-				out_file_str = f"seg_size_{sz}mm_resolution{self.num_ev_str[num]}_evts.txt"
+					print(out_str)
+				#out_file_str = f"seg_size_{sz}mm_resolution{self.num_ev_str[num]}_evts.txt"
+				out_path_param = self.out_file_path + dir_str[num]
 				for i in range(n_iters):
-					_, angle, n_caps = self.angleFit(self.grid_size[k], sz, num, i, write_outputs, keep_plots, self.out_file_path + dir_str[num], False, debug_msg)
+					_, angle, n_caps = self.angleFit(self.grid_size[k], sz, num, i, write_outputs, keep_plots, out_path_param, False, debug_msg)
 					fit_angle[num].append(angle)
 					num_fits[num].append(n_caps)
 				n_recons = np.mean(num_fits[num])
 				fit_means[num] = np.mean(fit_angle[num])
 				fit_stds[num] = np.std(fit_angle[num])
 				fit_res[sz].append(fit_stds[num])
-				out_str = "Fit value and angular resolution for "
-				out_str += f"{sz}mm after {self.iters} iterations on {num} events (deg.)\nfit: {fit_means[num]} \tres: {fit_stds[num]}\n"
-				out_str += f"Average number of reconstructions on {num} events: {n_recons} \n"
+				out_str = f"{num} events:\nfit: {fit_means[num]} deg\tres (from statistics:) {fit_stds[num]} deg\n"
+				out_str += f"<# of reconstructions> on {num} events: {n_recons} \n"
 				if (write_outputs):
-					write_it = self.out_file_path + dir_str[num] + out_file_str
-					with open(write_it, "w") as f:
+					with open(write_it, "a") as f:
 						print(out_str, file=f)
 				elif (debug_msg):
 					print(out_str)
+			fit_complete_str = f"Summary of fit for {sz}mm segments:\n"
+			fit_complete_str += f"Fit angles (deg:)\n{fit_angle}"
+			fit_complete_str += f"\n<Fit angles> (deg:)\n{fit_means}"
+			fit_complete_str += f"\nResolutions from statistics (deg:)\n{fit_res[sz]}\n"
 			if (write_outputs):
-				summary_file_str = f"angular_res_summary_{sz}mm_segments.txt"
-				with open(self.out_file_path + summary_file_str, "w") as f:
-					print(f"Fit angles (deg:)\n{fit_angle}", file=f)
-					print(f"Fit values (deg:)\n{fit_means}", file=f)
-					print(f"Fit resolutions (deg:)\n{fit_stds}", file=f)
-			print(f"Fit angles for {sz}mm segents (deg:)\n{fit_angle}")
-			print(f"Fit values for {sz}mm segents (deg:)\n{fit_means}")
-			print(f"Fit resolutions for {sz}mm segents (deg:)\n{fit_stds}")
+				summary_file_str = summarize_it + f"{sz}mm_seg.txt"
+				with open(summary_file_str, "w") as f:
+					print(fit_complete_str, file=f)
+			elif (debug_msg):
+				print(fit_complete_str)
 			ax1.plot(n_evts, fit_res[sz], seg_style[sz], label = f"{sz}mm")
+		fit_summary_str = f"Fit resolutions for {self.seg_sz} segments:\n{fit_res}"
+		summarize_it += "all.txt"
+		if (write_outputs):
+			with open(summarize_it, "w") as f:
+				print(fit_summary_str, file=f)
+		print(fit_summary_str)
 		# show me the money!!!
 		ax1.legend(loc="upper right", framealpha=1.0)
 		fig.tight_layout()
-		#plt.show()
 		if (keep_plots):
-			plt.savefig(self.out_file_path + f_name, format="pdf")
+			plt.savefig(plot_it, format="pdf")
 		if (show_plots):
 			plt.show()
 		plt.close()
 		return
-################################################################
-	# function makes single fit for various segment sizes, and number of events in each "data" file, and saves output for use in parallel shell script. Alternatively, a single fit
-	# resolution plot can be made using the covariance matrix values from the fits as the angular resolutions
-	# TODO: take it_num as an input from the shell script
+	################################################################
+	# function makes single fit for various segment sizes, and
+	# number of events in each "data" file, and saves output for use
+	# in parallel shell script.
+	# Alternatively, a single fit resolution plot can be made using
+	# the covariance matrix values from the fits as the angular
+	# resolutions.
+	################################################################
 	def doSingleFit(self, it_num, f_name, write_outputs=True, debug_msg=False):# unused parameters: keep_plots=True (after write_outputs)
 		# matrix size for n by n binning matrix -- events are binned by counting the number of segments between prompt and delayed vertices
 		# TODO: find proper binning size for 5 mm segments 17x17 bins approximately 40% of events, or half of captures
-		# TODO: take n_iters as a command line parameter, and track i from shell script. this is done to make the code run the inner for loop as a parallel process
 		if(self.debug):
 			print("DirectionalAnalysis class method: doSingleFit")
+		if (f_name == ""):
+			f_name = f"fit_params_itnum{it_num}.txt"
+		write_it = self.out_file_path + f_name
+		out_str = f"Fits for iteration #{it_num}:\n"
+		if (write_outputs):
+			with open(write_it, "w") as f:
+				print(out_str, file=f)
+		elif (debug_msg):
+			print(out_str)
 		fit_res = {150: [], 50: [], 5: []}
 		n_evts = [10, 20, 50, 100, 200, 500, 1000, 2000, 5000, 10000]
 		dir_str = {
-				10: "moneyplot_10_evt_fits/", 20: "moneyplot_20_evt_fits/", 
-				50: "moneyplot_50_evt_fits/", 100: "moneyplot_100_evt_fits/", 
-				200: "moneyplot_200_evt_fits/", 500: "moneyplot_500_evt_fits/", 
-				1000: "moneyplot_1k_evt_fits/", 2000: "moneyplot_2k_evt_fits/", 
-				5000: "moneyplot_5k_evt_fits/", 10000: "moneyplot_10k_evt_fits/"
+				10: "res_plot_10_evt_fits/", 20: "res_plot_20_evt_fits/", 
+				50: "res_plot_50_evt_fits/", 100: "res_plot_100_evt_fits/", 
+				200: "res_plot_200_evt_fits/", 500: "res_plot_500_evt_fits/", 
+				1000: "res_plot_1k_evt_fits/", 2000: "res_plot_2k_evt_fits/", 
+				5000: "res_plot_5k_evt_fits/", 10000: "res_plot_10k_evt_fits/"
 		}
 		for k, sz in enumerate(self.seg_sz):
 			fit_angle = {
@@ -437,34 +495,40 @@ class DirectionalAnalysis():
 					1000: [], 2000: [], 5000: [], 
 					10000: []
 			}
+			out_str = f"____________________\nSegment size: {sz}mm\n____________________\n"
+			if (write_outputs):
+				with open(write_it, "a") as f:
+					print(out_str, file=f)
+			elif (debug_msg):
+				print(out_str)
 			for j, num in enumerate(n_evts):
 				if (debug_msg):
 					print(f"Calculating fits and angular resolution for {num} events in {sz}mm segments ...\n")
-				out_file_str = f"seg_size_{sz}mm_resolution{self.num_ev_str[num]}_evts" + f_name
+				out_path_param = self.out_file_path + dir_str[num]
 				# Get fit values
-				res, angle, n_caps = self.angleFit(self.grid_size[k], sz, num, it_num, write_outputs, True, self.out_file_path + dir_str[num], False, debug_msg)
+				res, angle, n_caps = self.angleFit(self.grid_size[k], sz, num, it_num, write_outputs, True, out_path_param, False, debug_msg)
 				fit_angle[num].append(angle)
 				num_fits[num].append(n_caps)
 				n_recons = np.mean(num_fits[num])
 				fit_res[sz].append(res)
-				out_str = "Fit value and angular resolution for "
-				out_str += f"{sz}mm after fit #{it_num} on {num} events (deg.)\nfit: {angle} \tres (from covariance:) {res}\n"
-				out_str += f"Number of reconstructions on {num} events: {n_caps}\n"
+				out_str = f"{num} events:\nfit: {angle} deg\tres (from covariance:) {res} deg\n"
+				out_str += f"# of reconstructions on {num} events: {n_caps}\n"
 				if (write_outputs):
-					write_it = self.out_file_path + dir_str[num] + out_file_str
-					with open(write_it, "w") as f:
+					with open(write_it, "a") as f:
 						print(out_str, file=f)
 				elif (debug_msg):
 					print(out_str)
-			print(f"Fit angles for {sz}mm segents (deg:)\n{fit_angle}")
-			print(f"Fit resolutions from covariance for {sz}mm segments (deg:)\n{fit_res[sz]}")
+			fit_complete_str = f"Summary of fit for {sz}mm segments:\n"
+			print(fit_complete_str)
+			fit_complete_str = f"Fit angles (deg:)\n{fit_angle}\n"
+			print(fit_complete_str)
+			fit_complete_str = f"Resolutions from covariance (deg:)\n{fit_res[sz]}\n"
+			print(fit_complete_str)
 		fit_summary_str = f"Fit resolutions for {self.seg_sz} segments:\n{fit_res}"
 		print(fit_summary_str)
-		if (write_outputs):
-			sum_file = self.out_file_path + "fit_summary_" + f_name
-			with open(sum_file, "w") as f:
-				print(fit_summary_str, file=f)
 		return
+################################################################
+# __main__ method for execution of other methods
 ################################################################
 if __name__ == "__main__":
 	"""
@@ -486,7 +550,8 @@ if __name__ == "__main__":
 	else:# set options for doIterativeFits and call this method for else
 		itnums = 5
 		plot_name = f"ang_res_plot_{itnums}iters.pdf"
-		da.doIterativeFits(itnums, plot_name)
+		output_fname = f"fit_params_{itnums}iters.txt"
+		da.doIterativeFits(itnums, plot_name, output_fname)#, True, False)
 	
 	sys.exit()
 # dumping ground for unused code
