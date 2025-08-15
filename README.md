@@ -5,6 +5,8 @@ A Python script that uses Pandas to read data files from a RATPAC2 simulation an
 
 This script will also perform these fits a specified number of times on an array of different data sets containing 10, 100, 1k and 10k IBD events in order to find the angular resolution at 1 sigma confidence as a function of number of IBD events analyzed. All output logs and fits are saved to text (.txt) and plots (.pdf) respectively, and the main plot and output file are saved in the fits/ directory.
 # Version History
+15AUG2025	v 0.3.2 Hotfix 5. Added debug timers. Added exception handling for reading pandas data frames and data files. TODO: create JSON file for binning matrices of reference set in __init__ method and load from __init__ method. Create separate method for plotting angular resolution as function of number of reconstructed IBDs.
+
 08AUG2025	v 0.3.1: Hotfix 4. Fixes: corrected __init__ method to have correct default values. Changed diIterativeFit() and doSingleFit() methods to append to a single output file with results of fits. Renamed output directories for specific numbers of events fits.
 
 07AUG2025	v 0.3.0: Parallelization. Added doSingleFit() method which takes command line parameters for output files and iteration number. Renamed the resolutionPlot() method to doIterativeFits() for generating the resolution plot using iterative fitting. Added initMatrix() method to intialize binning matrix outside of the binEvents() method. In the __main__ method, the script defaults to using the doIterativeFits() method for generating a resolution plot. Fixes: added debug messages to methods that were missing these. TODO: Add initReference() method to call from __init__ method to read data for reference sets and bin reference events.
